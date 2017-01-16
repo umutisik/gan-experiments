@@ -1,11 +1,16 @@
-## Generative Adversarial Network on MNIST data
+## Generative Adversarial Network Experiments 
 
-Notebooks using Keras and Tensorflow. Provided as example code. The convolutional network worked best. 
+Notebooks experimenting with Generative Adversarial Networks. Using Keras and Tensorflow.   
+
+The convolutional model worked best. 
+
+Non-picked generator outputs after 2 epochs:
+![Non-picked generator outputs after 2 epochs](outputimages/combined_outputs_big.png)
 
 Following:
 
 * Goodfellow et. al, Generative Adversarial Nets
-* Radford et. al., UNSUPERVISED REPRESENTATION LEARNING WITH DEEP CONVOLUTIONAL GENERATIVE ADVERSARIAL NETWORKS
+* Radford et. al., Unsupervised Representation Learning with Deep Convolutional Generative Adversarial Networks 
 
 ### License
 MIT
