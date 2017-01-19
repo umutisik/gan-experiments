@@ -9,9 +9,9 @@ Following:
 * Goodfellow et. al, Generative Adversarial Nets
 * Radford et. al., Unsupervised Representation Learning with Deep Convolutional Generative Adversarial Networks 
 
-Non-picked generator outputs after 2 epochs:
+Random generator outputs after 2 epochs:
 
-![Non-picked generator outputs after 2 epochs](outputimages/combined_outputs_big.png)
+![Non-picked generator outputs after 2 epochs](outputimages/combined_outputs.png)
 
 ### License
 MIT
