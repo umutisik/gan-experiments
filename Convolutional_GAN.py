@@ -1,6 +1,5 @@
 from __future__ import print_function
 import numpy as np
-from six.moves import cPickle as pickle
 from six.moves import range
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -8,7 +7,6 @@ from mpl_toolkits.axes_grid1 import AxesGrid
 
 import keras
 import tensorflow as tf
-from six.moves import cPickle as pickle
 
 import random
 
@@ -16,7 +14,7 @@ from keras.models import Sequential
 from keras.models import Sequential
 from keras.models import model_from_json
 from keras.layers import Dense, Dropout, Activation, Flatten, Reshape, UpSampling2D
-from keras.layers import Convolution2D, MaxPooling2D
+from keras.layers import Convolution2D, MaxPooling2D, BatchNormalization, GaussianNoise, Lambda
 from keras.optimizers import SGD, Adam
 
 from keras.preprocessing.image import ImageDataGenerator
@@ -24,7 +22,6 @@ from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.core import MaxoutDense
 
 from tensorflow.examples.tutorials.mnist import input_data
-
 
 def prepare_dataset():
     mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
@@ -49,8 +46,6 @@ def prepare_dataset():
     print('Test set', test_dataset.shape, test_labels.shape)
     
     return train_dataset, train_labels, valid_dataset, valid_labels, test_dataset, test_labels
-
-
 
 # tools for showing and saving images
 def show_imagelist_as_grid(img_list, nrow, ncol):
@@ -77,7 +72,7 @@ def save_images(img_list,nrow,ncol,label):
 
 
 def normal_init(shape, name=None):
-    return keras.initializations.normal(shape, scale=0.02, name=name)
+    return keras.initializations.normal(shape, scale=0.04, name=name)
 
 def save_model(fname):
     generator_json = generator.to_json()
@@ -95,16 +90,34 @@ def save_model(fname):
 
     print("Saved model to disk")
 
+def generate_picked(pickiness):
+    cherry_picked = np.zeros([batch_size, image_size*image_size])
+    num_picked = 0
+    while num_picked < batch_size:
+        batch_noise = np.random.uniform(-0.5, 0.5, size=(batch_size, num_gen_input_size))    
+        generated_images = generator.predict(batch_noise, verbose=0)
+        preds = discriminator.predict(generated_images)
+        print("new batch", np.max(preds))
+        for i in range(batch_size):
+            if preds[i]>pickiness:
+                cherry_picked[num_picked,:] = generated_images[i,:].reshape(784)
+                num_picked+=1
+                print(num_picked)
+                if(num_picked>=batch_size):
+                    break
+
+    save_images(cherry_picked.reshape(-1,image_size,image_size), 16,8, "picked" + str(random.random()))
+
+
+
 def gen_model():
     model = Sequential()
     model.add(Dense(64*7*7, input_shape=(num_gen_input_size,)))
     model.add(LeakyReLU(alpha=lrelu_alpha))
-    model.add(Dropout(dropout_prob_gen))
     model.add(Reshape((7, 7, 64)))
     model.add(UpSampling2D(size=(2, 2)))
     model.add(Convolution2D(64, 5, 5, border_mode='same'))
     model.add(LeakyReLU(alpha=lrelu_alpha))
-    model.add(Dropout(dropout_prob_gen))
     model.add(UpSampling2D(size=(2, 2)))
     model.add(Convolution2D(1, 5, 5, border_mode='same'))
     model.add(Activation('tanh'))
@@ -112,12 +125,12 @@ def gen_model():
 
 def discr_model():
     model = Sequential()
-    model.add(Convolution2D(64, 5, 5, border_mode='same', subsample=(2,2), input_shape=(28,28,1), init=normal_init))
+    model.add(Convolution2D(64, 7, 7, border_mode='same', subsample=(2,2), input_shape=(28,28,1), init=normal_init))
+    model.add(BatchNormalization(mode=2))
     model.add(LeakyReLU(alpha=lrelu_alpha))
-    model.add(Dropout(dropout_prob_gen))
-    model.add(Convolution2D(128, 5, 5, border_mode='same', subsample=(2,2)))
+    model.add(Convolution2D(128, 5, 5, border_mode='same', subsample=(2,2), init=normal_init))
+    model.add(BatchNormalization(mode=2))
     model.add(LeakyReLU(alpha=lrelu_alpha))
-    model.add(Dropout(dropout_prob_gen))
     model.add(Flatten())
     model.add(Dense(1))
     model.add(Activation('sigmoid'))
@@ -134,25 +147,47 @@ def discr_on_gen_model(gen, discr):
 
 if __name__ == "__main__":
 
+    ## Operation 
     load_old_weights = False 
-    old_weights_fname = "saved_models/conv_100"
+    old_weights_fname = "saved_models/200000/conv_"
+    generate_and_leave = False 
+    pickiness = 0.0 # for generated outputs
 
-    image_size = 28
+    ## Parameters
+
+    image_size = 28 # now fixed: some vars in architecture assume 28
     
+    batch_size = 128 
+    
+    dropout_prob_gen = 0.0
+    dropout_prob_discr = 0.0
+    lrelu_alpha = 0.2
+    num_gen_input_size = 100 # the dimension of the random input of generator
+
+    print_step = 400 
+    save_step = 1000 
+    reshuffle_step = 1100 # how often to reshuffle data set 
+    num_steps = 20000000 # max number of batches 
+    range_start = 0 # output filenames will start at range_start 
+
+    discr_lr = 0.002  # learning rates
+    gen_lr = 0.002
+    discr_decay=1e-10  # decays
+    gen_decay=1e-10
+    discr_momentum=0.5  # for discr SGD
+
+    ## dataset
     train_dataset, train_labels, valid_dataset, valid_labels, test_dataset, test_labels = prepare_dataset()
+
+    train_dataset = np.concatenate((train_dataset, valid_dataset, test_dataset), axis=0)
 
     dataset_mean = np.mean(train_dataset)
     dataset_std = np.std(train_dataset)
     print("mean and std: ", dataset_mean, dataset_std)
 
-    batch_size = 64
-    num_steps = 10000
+    np.random.shuffle(train_dataset)
 
-    dropout_prob_gen = 0.0
-    dropout_prob_discr = 0.0
-    lrelu_alpha = 0.2
-    num_gen_input_size = 100
-
+    ## models 
     discriminator = discr_model();
     generator = gen_model();
 
@@ -161,11 +196,11 @@ if __name__ == "__main__":
         print("Loaded generator")
         discriminator.load_weights(old_weights_fname + "_discriminator.h5")
         print("Loaded discriminator")
-
+        
     discriminator_on_generator = discr_on_gen_model(generator, discriminator);
 
-    discr_optimizer = Adam(lr=0.0002, beta_1=0.5, decay=1e-6)
-    gen_optimizer = Adam(lr=0.0002, beta_1=0.5, decay=1e-6)
+    discr_optimizer = SGD(lr=discr_lr, decay=discr_decay, momentum=discr_momentum)
+    gen_optimizer = Adam(lr=gen_lr, beta_1=0.5, decay=gen_decay)
 
     generator.compile(loss='binary_crossentropy', optimizer="SGD")
     discriminator_on_generator.compile(loss='binary_crossentropy', optimizer=gen_optimizer)
@@ -173,10 +208,12 @@ if __name__ == "__main__":
     discriminator.compile(loss='binary_crossentropy', optimizer=discr_optimizer)
 
 
-    # training
-    print_step = 100 
-    save_step = 300 
-    
+    if generate_and_leave:
+        generate_picked(pickiness) 
+        exit()
+            
+    ## training
+
     gen_loss_total = 0.0
     gen_trained = 0
     discr_loss_total = 0.0
@@ -184,9 +221,6 @@ if __name__ == "__main__":
 
     batch_1s = np.zeros(batch_size)+1
     batch_0s = np.zeros(batch_size)
-
-    num_steps = 200000 
-    range_start = 0
 
     print("Starting training.")
     for step in range(range_start,range_start+num_steps):
@@ -197,7 +231,7 @@ if __name__ == "__main__":
             batch_noise = np.random.uniform(-0.5, 0.5, size=(batch_size, num_gen_input_size))
             generated_images = generator.predict(batch_noise, verbose=0)
             discriminator.trainable = True # just to make sure it's still trainable
-            ld1 = discriminator.train_on_batch(batch_data, batch_1s)
+            ld1 = discriminator.train_on_batch(batch_data, batch_1s - np.abs(np.random.normal(0,0.15, batch_size)))
             ld2 = discriminator.train_on_batch(generated_images, batch_0s)
             discr_loss_total += (ld1+ld2)/2
             discr_trained += 1
@@ -215,13 +249,17 @@ if __name__ == "__main__":
             if discr_trained == 0:
                 discr_trained = 1
             print('Minibatch loss before step %d: discriminator %f, generator: %f' % (step+1, discr_loss_total/discr_trained, gen_loss_total/gen_trained))
+            with open("logg.txt", "a") as myfile:
+                myfile.write('Minibatch loss before step %d: discriminator %f, generator: %f\n' % (step+1, discr_loss_total/discr_trained, gen_loss_total/gen_trained))
             gen_loss_total = 0.0
             discr_loss_total = 0.0
             gen_trained = 0
             discr_trained = 0
             save_images(generated_images.reshape(-1,image_size,image_size),4,4,"gen_"+ str(step))
         if step % save_step == save_step-1:
-            save_model("conv_" + str(step))
+            save_model("conv_"+ str(step))  
+        if step % reshuffle_step == reshuffle_step-1:
+            np.random.shuffle(train_dataset)
     
 
 

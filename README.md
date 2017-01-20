@@ -9,9 +9,16 @@ Following:
 * Goodfellow et. al, Generative Adversarial Nets
 * Radford et. al., Unsupervised Representation Learning with Deep Convolutional Generative Adversarial Networks 
 
-Random generator outputs after 2 epochs:
+<br>
+From: `Convolutional_GAN.py`<br>
+Random generator outputs:
 
-![Non-picked generator outputs after 2 epochs](outputimages/combined_outputs.png)
+![Non-picked generator outputs](outputimages/random.jpeg)
+
+<br>
+Discriminator Favorites:
+
+![Discriminator Favorites](outputimages/discr_picked.jpeg)
 
 ### License
 MIT
