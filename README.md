@@ -2,7 +2,7 @@
 
 Notebooks experimenting with Generative Adversarial Networks. Using Keras and Tensorflow.   
 
-The convolutional model worked best. 
+The convolutional model (`Convolutional_GAN.py`) worked best. 
 
 Following:
 
@@ -10,7 +10,7 @@ Following:
 * Radford et. al., Unsupervised Representation Learning with Deep Convolutional Generative Adversarial Networks 
 
 <br>
-From: `Convolutional_GAN.py`<br>
+
 Random generator outputs:
 
 ![Non-picked generator outputs](outputimages/random.jpeg)
