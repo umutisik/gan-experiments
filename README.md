@@ -20,6 +20,11 @@ Discriminator Favorites:
 
 ![Discriminator Favorites](outputimages/discr_picked.jpeg)
 
+<br>
+Transitions in the generator input space:
+
+![Transitions](outputimages/transitions.jpeg)
+
 ### License
 MIT
 

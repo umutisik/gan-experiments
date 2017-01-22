@@ -90,6 +90,54 @@ def save_model(fname):
 
     print("Saved model to disk")
 
+
+def generate_transitions():
+    mm = 17  # number of pics on each side of transition image 
+
+    # open a previously saved set of generator noise inputs so that the corners and the center are nice
+    with open("outputimages/outs.txt","r") as f:
+        ns = json.load(f)
+        nar = np.array(ns)
+
+    for _ in range(1):
+        trans_noise = np.zeros([mm*mm, num_gen_input_size])
+        r_c = nar[14]
+        r_tl = nar[0]
+        r_tr = nar[1]
+        r_bl = nar[3]
+        r_br = nar[124]
+
+        r_orig = r_c
+        rr = (mm//2)
+        s2 = np.sqrt(2)
+        for i in range(-rr, rr+1):
+            for j in range(-rr, rr+1):
+                if i>=0 and i>=abs(j):
+                    t_i = (i - j)/rr/s2 
+                    t_j = (i + j)/rr/s2 
+                    r_ax1 = r_br
+                    r_ax2 = r_tr
+                elif i<=0 and -i>=abs(j):
+                    t_i = (-i + j)/rr/s2
+                    t_j = (-i - j)/rr/s2 
+                    r_ax1 = r_tl
+                    r_ax2 = r_bl
+                elif j>=0 and j>=abs(i):
+                    t_i = (i + j)/rr/s2
+                    t_j = (-i + j)/rr/s2 
+                    r_ax1 = r_tr
+                    r_ax2 = r_tl
+                else: # (j<=0 and -j>=abs(i))
+                    t_i = (-i - j)/rr/s2
+                    t_j = (+i - j)/rr/s2 
+                    r_ax1 = r_bl
+                    r_ax2 = r_br
+                r_interp = r_orig + t_i*(r_ax1 - r_orig) + t_j*(r_ax2 - r_orig)
+                trans_noise[(i+rr)*mm + (j+rr)] = r_interp
+        generated_images = generator.predict(trans_noise, verbose=0)
+        save_images(generated_images.reshape(-1,image_size,image_size), mm,mm, "transition" + str(random.random()))
+
+
 def generate_picked(pickiness):
     cherry_picked = np.zeros([batch_size, image_size*image_size])
     num_picked = 0
@@ -106,7 +154,7 @@ def generate_picked(pickiness):
                 if(num_picked>=batch_size):
                     break
 
-    save_images(cherry_picked.reshape(-1,image_size,image_size), 16,8, "picked" + str(random.random()))
+    save_images(cherry_picked.reshape(-1,image_size,image_size), 16,8, "picked")
 
 
 
